@@ -14,8 +14,8 @@ func iterate(ch chan *mapiter.Pair) mapiter.Iterator {
   ch <- &mapiter.Pair{Key: "key1", Value: ...}
   ch <- &mapiter.Pair{Key: "key2", Value: ...}
   ...
-	// DO NOT forget to close the channel
-	close(ch)
+  // DO NOT forget to close the channel
+  close(ch)
   iter := mapiter.New(ch)
   return iter
 }

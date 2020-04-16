@@ -71,3 +71,11 @@ for iter := mapiter.Iterate(ctx, m); iter.Next(ctx); {
 	...
 }
 ```
+
+```go
+s := make([]...) // element may be any type
+
+for iter := arrayiter.Iterate(ctx, s); iter.Next(ctx); {
+  ...
+}
+```

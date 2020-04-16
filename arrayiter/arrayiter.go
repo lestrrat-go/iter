@@ -54,6 +54,7 @@ func New(ch chan *Pair) Iterator {
 func (i *iter) Next(ctx context.Context) bool {
 	i.mu.RLock()
 	if i.ch == nil {
+		i.mu.RUnlock()
 		return false
 	}
 	i.mu.RUnlock()

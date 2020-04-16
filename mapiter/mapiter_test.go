@@ -2,6 +2,8 @@ package mapiter_test
 
 import (
 	"context"
+	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -15,6 +17,7 @@ func TestIterator(t *testing.T) {
 	ch := make(chan *mapiter.Pair, chSize)
 	ch <- &mapiter.Pair{Key: "one", Value: 1}
 	ch <- &mapiter.Pair{Key: "two", Value: 2}
+	close(ch)
 
 	i := mapiter.New(ch)
 
@@ -48,45 +51,72 @@ func (m *MapLike) Iterate(ctx context.Context) mapiter.Iterator {
 func (m *MapLike) iterate(ctx context.Context, ch chan *mapiter.Pair) {
 	defer close(ch)
 	for k, v := range m.Values {
-		ch <-&mapiter.Pair{Key: k, Value: v}
+		ch <- &mapiter.Pair{Key: k, Value: v}
 	}
 }
 
 func TestAsMap(t *testing.T) {
-	src := &MapLike{
-		Values: map[string]int{
-			"one": 1,
-			"two": 2,
-			"three": 3,
-			"four": 4,
-			"five": 5,
-		},
-	}
-
-	t.Run("dst is nil", func(t *testing.T) {
-		var m map[string]int
-		if !assert.NoError(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should succeed`) {
-			return
+	t.Run("maps", func(t *testing.T) {
+		inputs := []interface{}{
+			map[string]string{
+				"foo": "one",
+				"bar": "two",
+				"baz": "three",
+			},
 		}
-
-		if !assert.Equal(t, src.Values, m, "maps should match") {
-			return
-		}
-	})
-	t.Run("dst is nil (elem type does not match)", func(t *testing.T) {
-		var m map[string]string
-		if assert.Error(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should fail`) {
-			return
+		for _, x := range inputs {
+			input := x
+			t.Run(fmt.Sprintf("%T", input), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				dst := reflect.New(reflect.TypeOf(input))
+				dst.Elem().Set(reflect.MakeMap(reflect.TypeOf(input)))
+				if !assert.NoError(t, mapiter.AsMap(ctx, input, dst.Interface()), `mapiter.AsMap should succeed`) {
+					return
+				}
+				if !assert.Equal(t, input, dst.Elem().Interface(), `maps should be the same`) {
+					return
+				}
+			})
 		}
 	})
-	t.Run("dst is not nil", func(t *testing.T) {
-		m := make(map[string]int)
-		if !assert.NoError(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should succeed`) {
-			return
+
+	t.Run("Map-like object", func(t *testing.T) {
+		src := &MapLike{
+			Values: map[string]int{
+				"one":   1,
+				"two":   2,
+				"three": 3,
+				"four":  4,
+				"five":  5,
+			},
 		}
 
-		if !assert.Equal(t, src.Values, m, "maps should match") {
-			return
-		}
+		t.Run("dst is nil", func(t *testing.T) {
+			var m map[string]int
+			if !assert.NoError(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should succeed`) {
+				return
+			}
+
+			if !assert.Equal(t, src.Values, m, "maps should match") {
+				return
+			}
+		})
+		t.Run("dst is nil (elem type does not match)", func(t *testing.T) {
+			var m map[string]string
+			if assert.Error(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should fail`) {
+				return
+			}
+		})
+		t.Run("dst is not nil", func(t *testing.T) {
+			m := make(map[string]int)
+			if !assert.NoError(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should succeed`) {
+				return
+			}
+
+			if !assert.Equal(t, src.Values, m, "maps should match") {
+				return
+			}
+		})
 	})
 }

@@ -8,6 +8,38 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Iterate creates an iterator from arbitrary map types. This is not
+// the most efficient tool, but it's the quickest way to create an
+// iterator for maps.
+// Also, note that you cannot make any assumptions on the order of
+// pairs being returned.
+func Iterate(ctx context.Context, m interface{}) (Iterator, error) {
+	mrv := reflect.ValueOf(m)
+
+	if mrv.Kind() != reflect.Map {
+		return nil, errors.Errorf(`argument must be a map (%s)`, mrv.Type())
+	}
+
+	ch := make(chan *Pair)
+	go func(ctx context.Context, ch chan *Pair, mrv reflect.Value) {
+		defer close(ch)
+		for _, key := range mrv.MapKeys() {
+			value := mrv.MapIndex(key)
+			pair := &Pair{
+				Key:   key.Interface(),
+				Value: value.Interface(),
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- pair:
+			}
+		}
+	}(ctx, ch, mrv)
+
+	return New(ch), nil
+}
+
 // Source represents a map that knows how to create an iterator
 type Source interface {
 	Iterate(context.Context) Iterator
@@ -94,8 +126,24 @@ func Walk(ctx context.Context, s Source, v Visitor) error {
 	return nil
 }
 
-// AsMap returns the values obtained from the source as a map[interface{}]interface{}
-func AsMap(ctx context.Context, src Source, v interface{}) error {
+// AsMap returns the values obtained from the source as a map
+func AsMap(ctx context.Context, s interface{}, v interface{}) error {
+	var iter Iterator
+	switch reflect.ValueOf(s).Kind() {
+	case reflect.Map:
+		x, err := Iterate(ctx, s)
+		if err != nil {
+			return errors.Wrap(err, `failed to iterate over map type`)
+		}
+		iter = x
+	default:
+		ssrc, ok := s.(Source)
+		if !ok {
+			return errors.Errorf(`cannot iterate over %T: not a mapiter.Source type`, s)
+		}
+		iter = ssrc.Iterate(ctx)
+	}
+
 	dst := reflect.ValueOf(v)
 
 	// dst MUST be a pointer to a map type
@@ -120,7 +168,7 @@ func AsMap(ctx context.Context, src Source, v interface{}) error {
 	keytyp := dst.Type().Key()
 	valtyp := dst.Type().Elem()
 
-	for iter := src.Iterate(ctx); iter.Next(ctx); {
+	for iter.Next(ctx) {
 		pair := iter.Pair()
 
 		rvkey := reflect.ValueOf(pair.Key)

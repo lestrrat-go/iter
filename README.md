@@ -61,3 +61,13 @@ err := arrayiter.AsArray(ctx, obj, &l)
 var m map[string]int
 err := mapiter.AsMap(ctx, obj, &m)
 ```
+
+## Iterate over native containers (map/array)
+
+```go
+m := make(map[...]...) // key and value may be any type
+
+for iter := mapiter.Iterate(ctx, m); iter.Next(ctx); {
+	...
+}
+```

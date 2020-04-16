@@ -9,6 +9,36 @@ import (
 	"github.com/pkg/errors"
 )
 
+func Iterate(ctx context.Context, a interface{}) (Iterator, error) {
+	arv := reflect.ValueOf(a)
+
+	switch arv.Kind() {
+	case reflect.Array, reflect.Slice:
+	default:
+		return nil, errors.Errorf(`argument must be an array/slice (%s)`, arv.Type())
+	}
+
+	ch := make(chan *Pair)
+	go func(ctx context.Context, ch chan *Pair, arv reflect.Value) {
+		defer close(ch)
+
+		for i := 0; i < arv.Len(); i++ {
+			value := arv.Index(i)
+			pair := &Pair{
+				Index: i,
+				Value: value.Interface(),
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- pair:
+			}
+		}
+	}(ctx, ch, arv)
+
+	return New(ch), nil
+}
+
 // Source represents a array that knows how to create an iterator
 type Source interface {
 	Iterate(context.Context) Iterator
@@ -96,7 +126,23 @@ func Walk(ctx context.Context, s Source, v Visitor) error {
 	return nil
 }
 
-func AsArray(ctx context.Context, src Source, v interface{}) error {
+func AsArray(ctx context.Context, s interface{}, v interface{}) error {
+	var iter Iterator
+	switch reflect.ValueOf(s).Kind() {
+	case reflect.Array, reflect.Slice:
+		x, err := Iterate(ctx, s)
+		if err != nil {
+			return errors.Wrap(err, `failed to iterate over array/slice type`)
+		}
+		iter = x
+	default:
+		ssrc, ok := s.(Source)
+		if !ok {
+			return errors.Errorf(`cannot iterate over %T: not a arrayiter.Source type`, s)
+		}
+		iter = ssrc.Iterate(ctx)
+	}
+
 	dst := reflect.ValueOf(v)
 
 	// dst MUST be a pointer to a array type
@@ -112,7 +158,7 @@ func AsArray(ctx context.Context, src Source, v interface{}) error {
 	}
 
 	var pairs []*Pair
-	for iter := src.Iterate(ctx); iter.Next(ctx); {
+	for iter.Next(ctx) {
 		pair := iter.Pair()
 		pairs = append(pairs, pair)
 	}

@@ -4,20 +4,29 @@ Simple tools for container iteration
 
 # DESCRIPTION
 
+`iter` and its sub-packages provide a set of utilities to make it easy for
+providers of objects that are iteratable.
+
+For example, if your object is map-like and you want a way for users to
+iterate through all or specific keys in your object, all you need to do
+is to provide a function that iterates through the pairs that you want,
+and send them to a channel.
+
+Then you create an iterator from the channel, and pass the iterator to the
+user. The user can then safely iterate through all elements
+
 ## Channel-based iterator
 
 Iterators pass its values via channels. Your implementation must provide a "source"
 that writes to this channel.
 
 ```go
-func iterate(ch chan *mapiter.Pair) mapiter.Iterator {
+func iterate(ch chan *mapiter.Pair) {
   ch <- &mapiter.Pair{Key: "key1", Value: ...}
   ch <- &mapiter.Pair{Key: "key2", Value: ...}
   ...
   // DO NOT forget to close the channel
   close(ch)
-  iter := mapiter.New(ch)
-  return iter
 }
 
 ch := make(chan *mapiter.Pair)

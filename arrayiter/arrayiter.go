@@ -2,7 +2,6 @@ package arrayiter
 
 import (
 	"context"
-	"fmt"
 	"reflect"
 	"sync"
 

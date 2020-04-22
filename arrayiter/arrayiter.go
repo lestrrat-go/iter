@@ -97,7 +97,6 @@ func (i *iter) Next(ctx context.Context) bool {
 		return false
 	case v, ok := <-i.ch:
 		if !ok {
-			fmt.Println("no more values")
 			i.ch = nil
 			return false
 		}

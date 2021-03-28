@@ -120,3 +120,30 @@ func TestAsMap(t *testing.T) {
 		})
 	})
 }
+
+func TestGH1(t *testing.T) {
+	t.Run("maps", func(t *testing.T) {
+		inputs := []interface{}{
+			map[string]interface{}{
+				"foo": "one",
+				"bar": "two",
+				"baz": nil,
+			},
+		}
+		for _, x := range inputs {
+			input := x
+			t.Run(fmt.Sprintf("%T", input), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+				dst := reflect.New(reflect.TypeOf(input))
+				dst.Elem().Set(reflect.MakeMap(reflect.TypeOf(input)))
+				if !assert.NoError(t, mapiter.AsMap(ctx, input, dst.Interface()), `mapiter.AsMap should succeed`) {
+					return
+				}
+				if !assert.Equal(t, input, dst.Elem().Interface(), `maps should be the same`) {
+					return
+				}
+			})
+		}
+	})
+}

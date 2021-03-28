@@ -1,0 +1,8 @@
+Changes
+=======
+
+v1.0.1 28 Mar, 2021
+  * Work with nil values for map[string]interface{} types (#1)
+
+v1.0.0
+  * Initial release

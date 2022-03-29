@@ -1,6 +1,10 @@
 Changes
 =======
 
+v1.0.2 29 Mar, 2022
+  * Use fmt.Errorf instead of github.com/pkg/errors
+  * Update github.com/stretchr/testify to 1.7.1
+
 v1.0.1 28 Mar, 2021
   * Work with nil values for map[string]interface{} types (#1)
 

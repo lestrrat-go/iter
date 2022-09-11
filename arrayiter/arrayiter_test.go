@@ -107,9 +107,7 @@ func TestAsArray(t *testing.T) {
 			}
 
 			var expected [5]string
-			for i, v := range src.Values {
-				expected[i] = v
-			}
+			copy(expected[:], src.Values)
 
 			if !assert.Equal(t, expected, m, "arrays should match") {
 				return

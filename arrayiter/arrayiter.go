@@ -101,9 +101,6 @@ func (i *iter) Next(ctx context.Context) bool {
 		i.next = v
 		return true
 	}
-
-	//nolint:govet
-	return false // never reached
 }
 
 // Pair returns the currently buffered Pair. Calling Next() will reset its value

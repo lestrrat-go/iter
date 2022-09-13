@@ -14,9 +14,9 @@ import (
 func TestIterator(t *testing.T) {
 	chSize := 2
 
-	ch := make(chan *mapiter.Pair, chSize)
-	ch <- &mapiter.Pair{Key: "one", Value: 1}
-	ch <- &mapiter.Pair{Key: "two", Value: 2}
+	ch := make(chan *mapiter.Pair[string, int], chSize)
+	ch <- &mapiter.Pair[string, int]{Key: "one", Value: 1}
+	ch <- &mapiter.Pair[string, int]{Key: "two", Value: 2}
 	close(ch)
 
 	i := mapiter.New(ch)
@@ -42,16 +42,16 @@ type MapLike struct {
 	Values map[string]int
 }
 
-func (m *MapLike) Iterate(ctx context.Context) mapiter.Iterator {
-	ch := make(chan *mapiter.Pair)
+func (m *MapLike) Iterate(ctx context.Context) mapiter.Iterator[string, int] {
+	ch := make(chan *mapiter.Pair[string, int])
 	go m.iterate(ctx, ch)
 	return mapiter.New(ch)
 }
 
-func (m *MapLike) iterate(ctx context.Context, ch chan *mapiter.Pair) {
+func (m *MapLike) iterate(ctx context.Context, ch chan *mapiter.Pair[string, int]) {
 	defer close(ch)
 	for k, v := range m.Values {
-		ch <- &mapiter.Pair{Key: k, Value: v}
+		ch <- &mapiter.Pair[string, int]{Key: k, Value: v}
 	}
 }
 
@@ -71,7 +71,7 @@ func TestAsMap(t *testing.T) {
 				defer cancel()
 				dst := reflect.New(reflect.TypeOf(input))
 				dst.Elem().Set(reflect.MakeMap(reflect.TypeOf(input)))
-				if !assert.NoError(t, mapiter.AsMap(ctx, input, dst.Interface()), `mapiter.AsMap should succeed`) {
+				if !assert.NoError(t, mapiter.AsMap[string, string](ctx, input, dst.Interface()), `mapiter.AsMap should succeed`) {
 					return
 				}
 				if !assert.Equal(t, input, dst.Elem().Interface(), `maps should be the same`) {
@@ -94,7 +94,7 @@ func TestAsMap(t *testing.T) {
 
 		t.Run("dst is nil", func(t *testing.T) {
 			var m map[string]int
-			if !assert.NoError(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should succeed`) {
+			if !assert.NoError(t, mapiter.AsMap[string, int](context.Background(), src, &m), `AsMap against nil map should succeed`) {
 				return
 			}
 
@@ -104,13 +104,13 @@ func TestAsMap(t *testing.T) {
 		})
 		t.Run("dst is nil (elem type does not match)", func(t *testing.T) {
 			var m map[string]string
-			if assert.Error(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should fail`) {
+			if assert.Error(t, mapiter.AsMap[string, int](context.Background(), src, &m), `AsMap against nil map should fail`) {
 				return
 			}
 		})
 		t.Run("dst is not nil", func(t *testing.T) {
 			m := make(map[string]int)
-			if !assert.NoError(t, mapiter.AsMap(context.Background(), src, &m), `AsMap against nil map should succeed`) {
+			if !assert.NoError(t, mapiter.AsMap[string, int](context.Background(), src, &m), `AsMap against nil map should succeed`) {
 				return
 			}
 
@@ -137,7 +137,7 @@ func TestGH1(t *testing.T) {
 				defer cancel()
 				dst := reflect.New(reflect.TypeOf(input))
 				dst.Elem().Set(reflect.MakeMap(reflect.TypeOf(input)))
-				if !assert.NoError(t, mapiter.AsMap(ctx, input, dst.Interface()), `mapiter.AsMap should succeed`) {
+				if !assert.NoError(t, mapiter.AsMap[string, interface{}](ctx, input, dst.Interface()), `mapiter.AsMap should succeed`) {
 					return
 				}
 				if !assert.Equal(t, input, dst.Elem().Interface(), `maps should be the same`) {
